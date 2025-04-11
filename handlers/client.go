@@ -206,8 +206,56 @@ func HandleClientBot(bot *tgbotapi.BotAPI) {
 				}
 				msg = tgbotapi.NewMessage(chatID, response)
 			} else if strings.HasPrefix(callback.Data, "good_") {
-				// Покупка товара
+				// Просмотр товара
 				goodIDStr := strings.TrimPrefix(callback.Data, "good_")
+				goodID, err := strconv.Atoi(goodIDStr)
+				if err != nil {
+					response = "Ошибка: неверный ID товара."
+				} else {
+					goods, err := db.GetGoods()
+					if err != nil {
+						response = "Ошибка получения товаров."
+					} else {
+						var good models.Good
+						var found bool
+						for _, g := range goods {
+							if g.ID == goodID {
+								good = g
+								found = true
+								break
+							}
+						}
+						if !found {
+							response = "Товар не найден."
+						} else {
+							// Формируем красивое сообщение
+							response = fmt.Sprintf(
+								"*%s*\n💰 Цена: %.2f ₽\n📝 Описание: %s",
+								good.Name, good.Value, good.Descr)
+							msg = tgbotapi.NewMessage(chatID, response)
+							msg.ParseMode = "Markdown"
+							msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+								tgbotapi.NewInlineKeyboardRow(
+									tgbotapi.NewInlineKeyboardButtonData("🛒 Купить", fmt.Sprintf("buy_good_%d", good.ID)),
+								),
+								tgbotapi.NewInlineKeyboardRow(
+									tgbotapi.NewInlineKeyboardButtonData("⬅ Назад", "back_to_menu"),
+								),
+							)
+						}
+					}
+				}
+				if response != "" && !strings.HasPrefix(response, "*") {
+					msg = tgbotapi.NewMessage(chatID, response)
+					msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+						tgbotapi.NewInlineKeyboardRow(
+							tgbotapi.NewInlineKeyboardButtonData("⬅ Назад", "back_to_menu"),
+						),
+					)
+				}
+			} else if strings.HasPrefix(callback.Data, "buy_good_") {
+				// Покупка товара
+				goodIDStr := strings.TrimPrefix(callback.Data, "buy_good_")
 				goodID, err := strconv.Atoi(goodIDStr)
 				if err != nil {
 					response = "Ошибка: неверный ID товара."
@@ -258,8 +306,56 @@ func HandleClientBot(bot *tgbotapi.BotAPI) {
 					),
 				)
 			} else if strings.HasPrefix(callback.Data, "service_") {
-				// Покупка услуги
+				// Просмотр услуги
 				serviceIDStr := strings.TrimPrefix(callback.Data, "service_")
+				serviceID, err := strconv.Atoi(serviceIDStr)
+				if err != nil {
+					response = "Ошибка: неверный ID услуги."
+				} else {
+					services, err := db.GetServices()
+					if err != nil {
+						response = "Ошибка получения услуг."
+					} else {
+						var service models.Service
+						var found bool
+						for _, s := range services {
+							if s.ID == serviceID {
+								service = s
+								found = true
+								break
+							}
+						}
+						if !found {
+							response = "Услуга не найдена."
+						} else {
+							// Формируем красивое сообщение
+							response = fmt.Sprintf(
+								"*%s*\n💰 Цена: %.2f ₽\n📝 Описание: %s",
+								service.Name, service.Value, service.Descr)
+							msg = tgbotapi.NewMessage(chatID, response)
+							msg.ParseMode = "Markdown"
+							msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+								tgbotapi.NewInlineKeyboardRow(
+									tgbotapi.NewInlineKeyboardButtonData("🛒 Купить", fmt.Sprintf("buy_service_%d", service.ID)),
+								),
+								tgbotapi.NewInlineKeyboardRow(
+									tgbotapi.NewInlineKeyboardButtonData("⬅ Назад", "back_to_menu"),
+								),
+							)
+						}
+					}
+				}
+				if response != "" && !strings.HasPrefix(response, "*") {
+					msg = tgbotapi.NewMessage(chatID, response)
+					msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+						tgbotapi.NewInlineKeyboardRow(
+							tgbotapi.NewInlineKeyboardButtonData("⬅ Назад", "back_to_menu"),
+						),
+					)
+				}
+			} else if strings.HasPrefix(callback.Data, "buy_service_") {
+				// Покупка услуги
+				serviceIDStr := strings.TrimPrefix(callback.Data, "buy_service_")
 				serviceID, err := strconv.Atoi(serviceIDStr)
 				if err != nil {
 					response = "Ошибка: неверный ID услуги."
@@ -434,10 +530,14 @@ func HandleClientBot(bot *tgbotapi.BotAPI) {
 					} else {
 						response = "История покупок:\n"
 						for _, purchase := range purchases {
+							typeText := "Товар"
+							if purchase.Type == "Service" {
+								typeText = "Услуга"
+							}
 							timeFormatted := time.Unix(purchase.Time, 0).Format("2006-01-02 15:04:05")
 							response += fmt.Sprintf(
-								"ID: %d, %s (%s) - %.2f ₽, Статус: %s, Время: %s\n",
-								purchase.ID, purchase.Name, purchase.Type, purchase.Value, purchase.Status, timeFormatted)
+								"%s (%s) - %.2f ₽, Статус: %s, Время: %s\n",
+								purchase.Name, typeText, purchase.Value, purchase.Status, timeFormatted)
 						}
 					}
 					msg = tgbotapi.NewMessage(chatID, response)
