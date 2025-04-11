@@ -72,10 +72,9 @@ func HandleClientBot(bot *tgbotapi.BotAPI) {
 				}
 
 				// Сохраняем информацию о платеже в базе данных
-				if err := db.CreatePayment(userID, invoice.InvoiceID, amount, state.asset, "active", "top_up", invoice.CreatedAt); err != nil {
+				if err := db.CreatePayment(userID, invoice.InvoiceID, amount, state.asset, "active", "top_up", invoice.CreatedAt.Unix()); err != nil {
 					log.Printf("Failed to save payment: %v", err)
 				}
-
 				// Отправляем пользователю ссылку на оплату
 				responseText := fmt.Sprintf(
 					"Создан счет на %.2f %s\n\n"+
