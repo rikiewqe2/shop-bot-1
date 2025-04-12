@@ -5,7 +5,8 @@ import (
 	"shop-bot/config"
 	"shop-bot/db"
 	"shop-bot/handlers"
-	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func main() {
@@ -14,8 +15,13 @@ func main() {
 		log.Fatal("Failed to initialize database:", err)
 	}
 
-	// Загрузка конфигурации
+	// Загрузка конфигурации из .env
 	cfg := config.LoadConfig()
+
+	// Инициализация настроек в базе данных
+	if err := db.InitSettings(cfg.CryptoPayToken, cfg.SupportAccount); err != nil {
+		log.Fatal("Failed to initialize settings:", err)
+	}
 
 	// Создание клиентского бота
 	clientBot, err := tgbotapi.NewBotAPI(cfg.ClientBotToken)

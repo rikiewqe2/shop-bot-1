@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"log"
-	"shop-bot/config"
 	"shop-bot/cryptopay"
 	"shop-bot/db"
 	"shop-bot/models"
@@ -34,9 +33,14 @@ func HandleClientBot(bot *tgbotapi.BotAPI) {
 
 	updates := bot.GetUpdatesChan(u)
 
+	// Получаем токен CryptoPay из БД
+	cryptoPayToken, err := db.GetSetting("CRYPTO_PAY_TOKEN")
+	if err != nil || cryptoPayToken == "" {
+		log.Fatal("Failed to get CRYPTO_PAY_TOKEN from database")
+	}
+
 	// Инициализация клиента Crypto Pay
-	cfg := config.LoadConfig()
-	cryptoClient = cryptopay.NewCryptoPayClient(cfg.CryptoPayToken)
+	cryptoClient = cryptopay.NewCryptoPayClient(cryptoPayToken)
 
 	// Запуск горутины для проверки статуса платежей
 	go checkPaymentStatus(bot)
@@ -455,7 +459,11 @@ func HandleClientBot(bot *tgbotapi.BotAPI) {
 					)
 
 				case "info":
-					response = "Напишите @SupportBot для помощи."
+					supportAccount, err := db.GetSetting("SUPPORT_ACCOUNT")
+					if err != nil || supportAccount == "" {
+						supportAccount = "@SupportBot"
+					}
+					response = fmt.Sprintf("Напишите %s для помощи.", supportAccount)
 					msg = tgbotapi.NewMessage(chatID, response)
 					msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 						tgbotapi.NewInlineKeyboardRow(
@@ -583,15 +591,22 @@ func clientMenu() tgbotapi.InlineKeyboardMarkup {
 }
 
 func createCryptoInvoice(userID int64, amount float64, asset string) (*cryptopay.Invoice, int64, int64, error) {
+	// Получаем актуальный PaidBtnUrl из базы данных
+	supportAccount, err := db.GetSetting("SUPPORT_ACCOUNT")
+	if err != nil || supportAccount == "" {
+		supportAccount = "@SupportBot"
+	}
+	paidBtnUrl := fmt.Sprintf("https://t.me/%s", strings.TrimPrefix(supportAccount, "@"))
+
 	params := cryptopay.CreateInvoiceParams{
 		Asset:         asset,
 		Amount:        amount,
-		Description:   fmt.Sprintf("Пополнение баланса пользователя %d", userID),
+		Description:   fmt.Sprintf("Пополнение баланса пользователя %d", userID), // Исправленная строка
 		Payload:       fmt.Sprintf("user_id:%d", userID),
 		AllowComments: true,
 		ExpiresIn:     1800,
 		PaidBtnName:   "openBot",
-		PaidBtnUrl:    "https://t.me/your_bot_name",
+		PaidBtnUrl:    paidBtnUrl,
 	}
 
 	invoice, err := cryptoClient.CreateInvoice(params)
